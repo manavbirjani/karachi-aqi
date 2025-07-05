@@ -1,45 +1,75 @@
+import requests
 import pandas as pd
 import joblib
-from fetch_data import fetch_aqi_data
 from datetime import datetime
 import os
 
+# Config
 CITY = "karachi"
-TOKEN = "49ac32407e3a6bbf5332f84468ee1cb16ee550fd"
+TOKEN = "49ac32407e3a6bbf5332f84468ee1cb16ee550fd"  
+MODEL_PATH = "models/karachi_aqi_model.pkl"
+PREDICTION_FILE = "data/daily_predictions.csv"
 
-data = fetch_aqi_data(CITY, TOKEN)
+# Step 1: Fetch API data
+def fetch_aqi_data(city, token):
+    url = f"https://api.waqi.info/feed/{city}/?token={token}"
+    response = requests.get(url)
+    return response.json()
 
-if data:
-    df = pd.DataFrame([data])
-    df['datetime'] = pd.to_datetime(df['datetime'])
-    df['hour'] = df['datetime'].dt.hour
-    df['day'] = df['datetime'].dt.day
-    df['month'] = df['datetime'].dt.month
+# Step 2: Extract forecast feature values
+def get_forecast_avg(data, key):
+    try:
+        today = datetime.today().strftime("%Y-%m-%d")
+        for entry in data['forecast']['daily'][key]:
+            if entry['day'] == today:
+                return entry['avg']
+        return None
+    except:
+        return None
 
-    X = df[['pm25', 'pm10', 'o3', 'hour', 'day', 'month']].fillna(0)
+# Fetch data
+api_response = fetch_aqi_data(CITY, TOKEN)
 
-    print("🧾 Forecast-based AQI input features:")
-    print(X)
+if api_response["status"] == "ok":
+    data = api_response["data"]
 
-    model_path = "models/karachi_aqi_model.pkl"
-    if not os.path.exists(model_path):
-        print(f"❌ Model not found at {model_path}. Train it first using train_model.py.")
+    # Extract forecast-based features
+    pm25 = get_forecast_avg(data, "pm25")
+    pm10 = get_forecast_avg(data, "pm10")
+    o3 = get_forecast_avg(data, "o3")
+    hour = datetime.now().hour
+    day = datetime.now().day
+    month = datetime.now().month
+
+    features = pd.DataFrame([{
+        "pm25": pm25,
+        "pm10": pm10,
+        "o3": o3,
+        "hour": hour,
+        "day": day,
+        "month": month
+    }])
+
+    # Step 3: Load the trained model
+    model = joblib.load(MODEL_PATH)
+
+    # Step 4: Predict AQI
+    predicted_aqi = model.predict(features)[0]
+    print("📊 Predicted AQI for today:", predicted_aqi)
+
+    # Step 5: Save result
+    prediction_entry = pd.DataFrame([{
+        "predicted_aqi": predicted_aqi,
+        "prediction_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }])
+
+    # Create file if not exists
+    if not os.path.exists(PREDICTION_FILE):
+        prediction_entry.to_csv(PREDICTION_FILE, index=False)
     else:
-        model = joblib.load(model_path)
-        prediction = model.predict(X)[0]
-        print(f"📊 Predicted AQI for today: {prediction:.2f}")
+        prediction_entry.to_csv(PREDICTION_FILE, mode='a', header=False, index=False)
 
-        os.makedirs("data", exist_ok=True)
-        prediction_log = pd.DataFrame([{
-            'prediction_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'aqi_predicted': prediction
-        }])
-        prediction_log.to_csv(
-            "data/daily_predictions.csv",
-            mode='a',
-            header=not os.path.exists("data/daily_predictions.csv"),
-            index=False
-        )
-        print("✅ Prediction saved to data/daily_predictions.csv")
+    print("✅ Prediction saved to", PREDICTION_FILE)
+
 else:
-    print("❌ Failed to fetch AQI forecast data.")
+    print("❌ API Error:", api_response.get("data"))
