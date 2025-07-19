@@ -39,3 +39,8 @@ jobs:
           git add models/karachi_aqi_model.pkl data/features_karachi.csv || true
           git commit -m "CI: Update features and retrain model" || echo "No changes to commit"
           git push origin main
+
+          - name: 🔐 Set Git remote using GH_PAT
+          run: |
+           git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/manavbirjani/karachi-aqi.git
+
