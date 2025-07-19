@@ -2,45 +2,50 @@ name: AQI CI/CD Pipeline
 
 on:
   schedule:
-    - cron: "0 0 * * *"  # ⏰ Runs daily at midnight UTC
-  workflow_dispatch:      # 🧪 Manual trigger
+    - cron: "0 0 * * *"  # Daily at 12:00 AM
+  workflow_dispatch:
 
 jobs:
-  retrain-model:
+  retrain:
     runs-on: ubuntu-latest
 
     steps:
-      - name: ⬇️ Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: 🐍 Set up Python
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: 3.11
 
-      - name: 📦 Install dependencies
+      - name: Install Dependencies
         run: pip install -r requirements.txt
 
-      - name: 🔁 Run retraining pipeline
+      - name: Run Retraining
         run: |
           python fetch_data.py
           python feature_engineering.py
           python train_model.py
 
-      - name: 🔐 Configure Git identity
+      - name: Configure Git and Push Model
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
         run: |
+          git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
-          git config --global user.name "github-actions"
 
-      - name: 🔁 Push updated model and features
-        run: |
-          git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/manavbirjani/karachi-aqi.git
-          git pull origin main --rebase || true
+          git remote set-url origin https://x-access-token:${GH_PAT}@github.com/manavbirjani/karachi-aqi.git
+
           git add models/karachi_aqi_model.pkl data/features_karachi.csv || true
           git commit -m "CI: Update features and retrain model" || echo "No changes to commit"
-          git push origin main
-
-          - name: 🔐 Set Git remote using GH_PAT
-          run: |
-           git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/manavbirjani/karachi-aqi.git
-
+          git push origin main || echo "Nothing to push"
+          
+              - name: 🔐 Set Git identity and push changes
+      run: |
+        git config --global user.email "actions@github.com"
+        git config --global user.name "GitHub Actions"
+        git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/manavbirjani/karachi-aqi.git
+        git pull origin main --rebase || true
+        git add models/karachi_aqi_model.pkl data/features_karachi.csv || true
+        git commit -m "CI: Update features and retrain model" || echo "No changes to commit"
+        git push origin main
