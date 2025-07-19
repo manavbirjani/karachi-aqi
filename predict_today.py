@@ -1,34 +1,34 @@
 import requests
 import pandas as pd
+import datetime
 import joblib
-from datetime import datetime
 import os
+import json
 
 # Constants
-API_TOKEN = os.getenv("AQI_API_TOKEN")  # Make sure this is set in your environment or .env file
-API_URL = f"https://api.waqi.info/feed/karachi/?token={API_TOKEN}"
 MODEL_PATH = "models/karachi_aqi_model.pkl"
-PREDICTION_FILE = "data/daily_predictions.csv"
+OUTPUT_FILE = "data/daily_predictions.csv"
+API_TOKEN = os.getenv("AQI_API_TOKEN")  # Secure token usage
+CITY_URL = f"https://api.waqi.info/feed/karachi/?token={API_TOKEN}"
 
-# Fetch AQI forecast data
-response = requests.get(API_URL)
-data = response.json()
+# Fetch data from API
+response = requests.get(CITY_URL)
 
-# Parse forecast data
+try:
+    data = response.json()  # ✅ Proper JSON parsing
+except json.JSONDecodeError:
+    print("Error decoding JSON from API.")
+    exit(1)
+
+print("🔍 Raw API response:", data)
+
+# Extract forecast data
 forecast = data.get("data", {}).get("forecast", {}).get("daily", {})
+pm25 = forecast.get("pm25", [{}])[2].get("avg", None)
+pm10 = forecast.get("pm10", [{}])[2].get("avg", None)
+o3 = forecast.get("o3", [{}])[2].get("avg", None)
 
-def get_avg(pollutant):
-    try:
-        return forecast[pollutant][2]['avg']
-    except:
-        return None
-
-pm25 = get_avg("pm25")
-pm10 = get_avg("pm10")
-o3 = get_avg("o3")
-
-# Prepare input features
-now = datetime.now()
+now = datetime.datetime.now()
 features = pd.DataFrame([{
     "pm25": pm25,
     "pm10": pm10,
@@ -38,21 +38,24 @@ features = pd.DataFrame([{
     "month": now.month
 }])
 
-# Check if data is valid
-if features.isnull().any().any():
-    print("⚠️ Missing input features, skipping prediction.")
-    exit()
+print("🧾 Forecast-based AQI input features:\n", features)
 
-# Load model
-model = joblib.load(MODEL_PATH)
+# Load model and predict
+if os.path.exists(MODEL_PATH):
+    model = joblib.load(MODEL_PATH)
+    prediction = model.predict(features)[0]
+    features["predicted_aqi"] = prediction
+    features["prediction_time"] = now.strftime("%Y-%m-%d %H:%M:%S")
+    print("✅ Prediction result:", prediction)
 
-# Make prediction
-predicted_value = model.predict(features)[0]
+    # Save to CSV
+    if os.path.exists(OUTPUT_FILE):
+        old_df = pd.read_csv(OUTPUT_FILE)
+        df = pd.concat([old_df, features], ignore_index=True)
+    else:
+        df = features
 
-# Save prediction
-df = pd.DataFrame({
-    "predicted_aqi": [predicted_value],
-    "prediction_time": [now.strftime("%Y-%m-%d %H:%M:%S")]
-})
-df.to_csv(PREDICTION_FILE, index=False)
-print(f"✅ Predicted AQI: {predicted_value:.2f}")
+    df.to_csv(OUTPUT_FILE, index=False)
+    print(f"📁 Prediction saved to {OUTPUT_FILE}")
+else:
+    print(f"❌ Model not found at {MODEL_PATH}")
