@@ -38,3 +38,8 @@ jobs:
           git add models/karachi_aqi_model.pkl data/features_karachi.csv || true
           git commit -m "CI: Update features and retrain model" || echo "No changes to commit"
           git push origin main
+
+          - name: Pull latest changes
+  run: |
+    git pull origin main --rebase || true
+
