@@ -2,36 +2,38 @@ name: Predict AQI Every 3 Hours
 
 on:
   schedule:
-    - cron: "0 */3 * * *"  # ⏰ Every 3 hours
-  workflow_dispatch:
+    - cron: '0 */3 * * *'  # every 3 hours
+  workflow_dispatch: # allow manual run
 
 jobs:
-  predict-aqi:
+  predict-and-push:
     runs-on: ubuntu-latest
 
     steps:
       - name: ⬇️ Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: 🐍 Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: 3.11
+          python-version: '3.11'
 
       - name: 📦 Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: 🤖 Run AQI prediction script
+      - name: 🔮 Run AQI prediction script
         run: python predict_today.py
 
-      - name: 🔐 Configure Git identity
+      - name: 🔐 Authenticate Git using GH_PAT
         run: |
           git config --global user.email "actions@github.com"
-          git config --global user.name "github-actions"
-
-      - name: 📝 Commit and push AQI prediction
-        run: |
+          git config --global user.name "github-actions[bot]"
           git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/manavbirjani/karachi-aqi.git
+
+      - name: 📤 Commit and push predictions
+        run: |
           git pull origin main --rebase || true
           git add data/daily_predictions.csv || true
           git commit -m "CI: Update daily AQI prediction" || echo "No changes to commit"
