@@ -1,39 +1,38 @@
-name: 🔁 AQI CI/CD Pipeline
+name: AQI CI/CD Pipeline
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # Runs once daily at midnight UTC
-  workflow_dispatch:      # Allows manual trigger
+    - cron: "0 0 * * *"  # Every day at midnight
+  workflow_dispatch:
 
 jobs:
   retrain:
     runs-on: ubuntu-latest
 
     steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v3
+      - name: 📥 Checkout code
+        uses: actions/checkout@v3
 
-    - name: 🐍 Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
 
-    - name: 📦 Install dependencies
-      run: |
-        pip install -r requirements.txt
+      - name: 📦 Install dependencies
+        run: |
+          pip install -r requirements.txt
 
-    - name: 🔁 Run data pipeline
-      run: |
-        python fetch_data.py
-        python feature_engineering.py
-        python train_model.py
+      - name: 🚀 Run training script
+        run: python train_model.py
 
-       - name: 🚀 Push changes back to GitHub
-      run: |
-        git config --global user.email "actions@github.com"
-        git config --global user.name "github-actions[bot]"
-        git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/manavbirjani/karachi-aqi.git
-        git pull origin main --rebase || true
-        git add models/karachi_aqi_model.pkl data/features_karachi.csv || true
-        git commit -m "CI: Update features and retrain model" || echo "No changes to commit"
-        git push origin main
+      - name: 🔐 Configure Git and push
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          git config --global user.email "actions@github.com"
+          git config --global user.name "github-actions[bot]"
+          git remote set-url origin https://x-access-token:${GH_PAT}@github.com/manavbirjani/karachi-aqi.git
+          git pull origin main --rebase || true
+          git add models/karachi_aqi_model.pkl data/features_karachi.csv || true
+          git commit -m "CI: Update features and retrain model" || echo "No changes to commit"
+          git push origin main
