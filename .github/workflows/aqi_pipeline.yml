@@ -28,13 +28,11 @@ jobs:
         python feature_engineering.py
         python train_model.py
 
-    - name: 🔐 Set Git identity and push changes
-      env:
-        GH_PAT: ${{ secrets.GH_PAT }}
+       - name: 🚀 Push changes back to GitHub
       run: |
         git config --global user.email "actions@github.com"
         git config --global user.name "github-actions[bot]"
-        git remote set-url origin https://x-access-token:${GH_PAT}@github.com/manavbirjani/karachi-aqi.git
+        git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/manavbirjani/karachi-aqi.git
         git pull origin main --rebase || true
         git add models/karachi_aqi_model.pkl data/features_karachi.csv || true
         git commit -m "CI: Update features and retrain model" || echo "No changes to commit"
