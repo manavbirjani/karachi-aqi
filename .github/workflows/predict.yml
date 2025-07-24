@@ -41,5 +41,7 @@ jobs:
          git diff --cached --quiet || git commit -m "🤖 AQI prediction update"
 
       - name: 🚀 Push changes to GitHub
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
         run: |
-         git push https://x-access-token:${{ secrets.GH_PAT }}@github.com/manavbirjani/karachi-aqi.git HEAD:main
+          git push https://x-access-token:${GH_PAT}@github.com/manavbirjani/karachi-aqi.git HEAD:main
