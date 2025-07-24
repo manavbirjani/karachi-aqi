@@ -16,7 +16,7 @@ response = requests.get(url)
 data = response.json()
 
 if data['status'] != 'ok':
-    print("❌ Failed to fetch AQI data:", data)
+    print("Failed to fetch AQI data:", data)
     exit(1)
 
 # Extract values
