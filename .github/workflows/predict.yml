@@ -30,19 +30,17 @@ jobs:
       - name: 📊 Run AQI Prediction
         run: python predict_today.py
 
-      - name: 🔧 Configure Git
+      - name: 🔧 Configure Git (as your username)
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "actions@github.com"
+          git config --global user.name "Manav Birjani"
+          git config --global user.email "manavbirjani@example.com"
 
       - name: 📝 Commit changes (skip if no changes)
         run: |
           git add data/daily_predictions.csv || echo "Nothing to add"
-          git diff --cached --quiet || git commit -m "AQI prediction update"
+          git diff --cached --quiet || git commit -m "🤖 AQI prediction update"
 
       - name: 🚀 Push changes to GitHub
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "actions@github.com"
           git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/manavbirjani/karachi-aqi.git
           git push origin main
