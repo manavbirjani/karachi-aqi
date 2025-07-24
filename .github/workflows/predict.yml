@@ -1,4 +1,4 @@
-name: Predict AQI Every 3 Hours
+name: AQI Prediction
 
 on:
   schedule:
@@ -10,39 +10,29 @@ jobs:
     runs-on: windows-latest
 
     env:
-      GH_PAT: ${{ secrets.GH_PAT }}
       AQI_API_TOKEN: ${{ secrets.AQI_API_TOKEN }}
+      GH_PAT: ${{ secrets.GH_PAT }}
 
     steps:
-      - name: ⬇️ Checkout repository
-        uses: actions/checkout@v3
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-      - name: 🐍 Set up Python
-        uses: actions/setup-python@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: 3.11
 
-      - name: 📦 Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+      - name: Install dependencies
+        run: pip install -r requirements.txt
 
-      - name: 📊 Run AQI Prediction
+      - name: Run Prediction
         run: python predict_today.py
 
-      - name: 🔧 Configure Git
+      - name: Commit and push prediction
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "actions@github.com"
-
-      - name: 📝 Commit changes
-        run: |
-          git add data/daily_predictions.csv || echo "Nothing to add"
-          git diff --cached --quiet || git commit -m "🤖 AQI prediction update"
-
-      - name: 🚀 Push changes
-        env:
-          TOKEN: ${{ secrets.GH_PAT }}
-        run: |
-          git remote set-url origin https://x-access-token:${TOKEN}@github.com/manavbirjani/karachi-aqi.git
+          git remote set-url origin https://x-access-token:${GH_PAT}@github.com/${{ github.repository }}
+          git add data/daily_predictions.csv
+          git commit -m "📊 New AQI prediction" || echo "No changes to commit"
           git push origin main
