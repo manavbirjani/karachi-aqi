@@ -32,8 +32,8 @@ jobs:
 
       - name: 🔧 Configure Git
         run: |
-           git config --global user.name "manavbirjani"
-           git config --global user.email "manavbirjani05@gmail.com"
+          git config --global user.name "manavbirjani"
+          git config --global user.email "manavbirjani05@gmail.com"
 
       - name: 📝 Commit changes (skip if no changes)
         run: |
@@ -42,5 +42,5 @@ jobs:
 
       - name: 🚀 Push changes to GitHub
         run: |
-         git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/manavbirjani/karachi-aqi.git
+          git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/manavbirjani/karachi-aqi.git
           git push origin main
