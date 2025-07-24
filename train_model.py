@@ -18,4 +18,4 @@ model.fit(X, y)
 
 # Save model
 joblib.dump(model, "models/karachi_aqi_model.pkl")
-print("✅ Model trained and saved to models/karachi_aqi_model.pkl")
+print("Model trained and saved to models/karachi_aqi_model.pkl")
