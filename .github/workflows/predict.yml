@@ -32,7 +32,7 @@ jobs:
 
       - name: 🔧 Configure Git (as your username)
         run: |
-          git config --global user.name "Manav Birjani"
+          git config --global user.name "manavbirjani"
           git config --global user.email "manavbirjani@example.com"
 
       - name: 📝 Commit changes (skip if no changes)
