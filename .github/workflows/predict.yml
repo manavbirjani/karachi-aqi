@@ -30,10 +30,10 @@ jobs:
       - name: 📊 Run AQI Prediction
         run: python predict_today.py
 
-      - name: 🔧 Configure Git (as your username)
+      - name: 🔧 Configure Git
         run: |
-          git config --global user.name "manavbirjani"
-          git config --global user.email "manavbirjani@example.com"
+           git config --global user.name "manavbirjani"
+           git config --global user.email "manavbirjani@gmail.com"
 
       - name: 📝 Commit changes (skip if no changes)
         run: |
