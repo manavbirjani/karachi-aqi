@@ -5,10 +5,10 @@ from sklearn.ensemble import RandomForestRegressor
 # Load features
 df = pd.read_csv("data/features_karachi.csv")
 
-# ❌ Drop rows where AQI is missing
+# Drop rows where AQI is missing
 df = df.dropna(subset=['aqi'])
 
-# ✅ Prepare training data
+# Prepare training data
 X = df[['pm25', 'pm10', 'o3', 'hour', 'day', 'month']].fillna(0)
 y = df['aqi']
 

@@ -1,61 +1,55 @@
 import requests
 import pandas as pd
-import datetime
 import joblib
+from datetime import datetime
+
+# Load model
+model = joblib.load("models/karachi_aqi_model.pkl")
+
+# Load token from environment variable (for GitHub Actions)
 import os
-import json
+API_TOKEN = os.getenv("AQI_API_TOKEN")
 
-# Constants
-MODEL_PATH = "models/karachi_aqi_model.pkl"
-OUTPUT_FILE = "data/daily_predictions.csv"
-API_TOKEN = os.getenv("AQI_API_TOKEN")  # Secure token usage
-CITY_URL = f"https://api.waqi.info/feed/karachi/?token={API_TOKEN}"
+# Get current AQI data
+url = f"https://api.waqi.info/feed/karachi/?token={API_TOKEN}"
+response = requests.get(url)
+data = response.json()
 
-# Fetch data from API
-response = requests.get(CITY_URL)
-
-try:
-    data = response.json()  # ✅ Proper JSON parsing
-except json.JSONDecodeError:
-    print("Error decoding JSON from API.")
+if data['status'] != 'ok':
+    print("❌ Failed to fetch AQI data:", data)
     exit(1)
 
-print("🔍 Raw API response:", data)
+# Extract values
+iaqi = data['data'].get('iaqi', {})
+pm25 = iaqi.get('pm25', {}).get('v', 0)
+pm10 = iaqi.get('pm10', {}).get('v', 0)
+o3 = iaqi.get('o3', {}).get('v', 0)
 
-# Extract forecast data
-forecast = data.get("data", {}).get("forecast", {}).get("daily", {})
-pm25 = forecast.get("pm25", [{}])[2].get("avg", None)
-pm10 = forecast.get("pm10", [{}])[2].get("avg", None)
-o3 = forecast.get("o3", [{}])[2].get("avg", None)
+# Current datetime
+now = datetime.now()
+hour = now.hour
+day = now.day
+month = now.month
 
-now = datetime.datetime.now()
-features = pd.DataFrame([{
+# Prepare features
+features = {'pm25': pm25, 'pm10': pm10, 'o3': o3, 'hour': hour, 'day': day, 'month': month}
+print("📊 Features for prediction:", features)
+
+df = pd.DataFrame([features])
+predicted_aqi = model.predict(df)[0]
+print(f"🎯 Predicted AQI: {predicted_aqi:.2f}")
+
+# Save prediction
+prediction_df = pd.DataFrame([{
+    "timestamp": now.isoformat(),
     "pm25": pm25,
     "pm10": pm10,
     "o3": o3,
-    "hour": now.hour,
-    "day": now.day,
-    "month": now.month
+    "hour": hour,
+    "day": day,
+    "month": month,
+    "predicted_aqi": predicted_aqi
 }])
 
-print("🧾 Forecast-based AQI input features:\n", features)
-
-# Load model and predict
-if os.path.exists(MODEL_PATH):
-    model = joblib.load(MODEL_PATH)
-    prediction = model.predict(features)[0]
-    features["predicted_aqi"] = prediction
-    features["prediction_time"] = now.strftime("%Y-%m-%d %H:%M:%S")
-    print("✅ Prediction result:", prediction)
-
-    # Save to CSV
-    if os.path.exists(OUTPUT_FILE):
-        old_df = pd.read_csv(OUTPUT_FILE)
-        df = pd.concat([old_df, features], ignore_index=True)
-    else:
-        df = features
-
-    df.to_csv(OUTPUT_FILE, index=False)
-    print(f"📁 Prediction saved to {OUTPUT_FILE}")
-else:
-    print(f"❌ Model not found at {MODEL_PATH}")
+prediction_df.to_csv("data/daily_predictions.csv", mode='a', header=not os.path.exists("data/daily_predictions.csv"), index=False)
+print("✅ Prediction saved to data/daily_predictions.csv")

@@ -3,3 +3,4 @@ requests
 joblib
 scikit-learn
 streamlit
+requests

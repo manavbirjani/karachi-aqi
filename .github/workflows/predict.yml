@@ -1,8 +1,8 @@
-name: 🔮 Daily AQI Prediction (Every 3 Hours - Windows)
+name: Predict AQI
 
 on:
   schedule:
-    - cron: "0 */3 * * *"  # Every 3 hours
+    - cron: "0 */3 * * *"
   workflow_dispatch:
 
 jobs:
@@ -14,26 +14,23 @@ jobs:
       GH_PAT: ${{ secrets.GH_PAT }}
 
     steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: 🐍 Set up Python
-        uses: actions/setup-python@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: 3.11
 
-      - name: 📦 Install dependencies
+      - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: 🔮 Run AQI prediction
+      - name: Predict AQI
         run: python predict_today.py
 
-      - name: 📤 Commit and push prediction
-        shell: pwsh
+      - name: Commit and push prediction
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "actions@github.com"
-          git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}
           git add data/daily_predictions.csv
-          git commit -m "🤖 Update daily AQI prediction" || echo "No changes to commit"
-          git push origin main
+          git commit -m "📊 New AQI prediction" || echo "No changes to commit"
+          git push https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git HEAD:${{ github.ref }}
