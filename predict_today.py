@@ -1,69 +1,67 @@
 import requests
 import pandas as pd
-import joblib
-import os
+import pickle
 from datetime import datetime
+import os
+from dotenv import load_dotenv
 
-# Load model
-model = joblib.load("models/karachi_aqi_model.pkl")
-
-# Get API token from environment variable
+# Load environment variables from .env
+load_dotenv()
 API_TOKEN = os.getenv("AQI_API_TOKEN")
-
 if not API_TOKEN:
     raise ValueError("AQI_API_TOKEN not set in environment variables.")
 
-# Fetch current AQI data for Karachi
+# Fetch AQI data from WAQI API for Karachi
 url = f"https://api.waqi.info/feed/karachi/?token={API_TOKEN}"
 response = requests.get(url)
 data = response.json()
 
-if data.get("status") != "ok":
-    print("Failed to fetch AQI data:", data)
-    exit(1)
+if data["status"] != "ok":
+    raise ValueError("Failed to fetch AQI data")
 
-# Extract required pollutant values
-iaqi = data['data'].get('iaqi', {})
-pm25 = iaqi.get('pm25', {}).get('v', 0)
-pm10 = iaqi.get('pm10', {}).get('v', 0)
-o3   = iaqi.get('o3', {}).get('v', 0)
+iaqi = data["data"].get("iaqi", {})
 
-# Time-based features
-now = datetime.now()
-hour = now.hour
-day = now.day
-month = now.month
+# Extract features, fill missing with 0
+def get_value(key):
+    return iaqi.get(key, {}).get("v", 0.0)
 
-# Prepare input features for the model
 features = {
-    'pm25': pm25,
-    'pm10': pm10,
-    'o3': o3,
-    'hour': hour,
-    'day': day,
-    'month': month
+    "pm25": get_value("pm25"),
+    "pm10": get_value("pm10"),
+    "o3": get_value("o3"),
+    "co": get_value("co"),
+    "no2": get_value("no2"),
+    "so2": get_value("so2"),
 }
 
-# ⛔ Avoid emojis in print statements to prevent Unicode errors on Windows
-print("Features for prediction:", features)
+# Add time features
+now = datetime.now()
+features["hour"] = now.hour
+features["day"] = now.day
+features["month"] = now.month
 
-# Make prediction
+# Convert to DataFrame
 df = pd.DataFrame([features])
-predicted_aqi = model.predict(df)[0]
-print(f"Predicted AQI: {predicted_aqi:.2f}")
 
-# Save to CSV
-prediction_df = pd.DataFrame([{
-    "timestamp": now.isoformat(),
-    "pm25": pm25,
-    "pm10": pm10,
-    "o3": o3,
-    "hour": hour,
-    "day": day,
-    "month": month,
-    "predicted_aqi": predicted_aqi
-}])
+# Load trained model
+with open("models/karachi_aqi_model.pkl", "rb") as f:
+    model = pickle.load(f)
 
-csv_path = "data/daily_predictions.csv"
-prediction_df.to_csv(csv_path, mode='a', header=not os.path.exists(csv_path), index=False)
-print(f"Prediction saved to {csv_path}")
+# Predict AQI
+prediction = model.predict(df)[0]
+
+# Save prediction
+output_file = "data/daily_predictions.csv"
+row = {
+    "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"),
+    "predicted_aqi": prediction
+}
+df_out = pd.DataFrame([row])
+
+# Append to file or create it
+if os.path.exists(output_file):
+    df_out.to_csv(output_file, mode='a', header=False, index=False)
+else:
+    df_out.to_csv(output_file, index=False)
+
+print(f"Predicted AQI: {prediction:.2f}")
