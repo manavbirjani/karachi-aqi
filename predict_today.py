@@ -33,11 +33,11 @@ month = now.month
 
 # Prepare features
 features = {'pm25': pm25, 'pm10': pm10, 'o3': o3, 'hour': hour, 'day': day, 'month': month}
-print("📊 Features for prediction:", features)
+print("Features for prediction:", features)
 
 df = pd.DataFrame([features])
 predicted_aqi = model.predict(df)[0]
-print(f"🎯 Predicted AQI: {predicted_aqi:.2f}")
+print(f"Predicted AQI: {predicted_aqi:.2f}")
 
 # Save prediction
 prediction_df = pd.DataFrame([{
