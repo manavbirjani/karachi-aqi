@@ -1,8 +1,8 @@
-name: Retrain AQI Model
+name: Retrain AQI Model Daily
 
 on:
   schedule:
-    - cron: "0 0 * * *"
+    - cron: '0 0 * * *'  # Every day at midnight UTC
   workflow_dispatch:
 
 jobs:
@@ -11,25 +11,36 @@ jobs:
 
     env:
       GH_PAT: ${{ secrets.GH_PAT }}
+      AQI_API_TOKEN: ${{ secrets.AQI_API_TOKEN }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: ⬇️ Checkout repository
+        uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
         with:
           python-version: 3.11
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: Train model
+      - name: 🧠 Retrain AQI Model
         run: python train_model.py
 
-      - name: Commit and push model
+      - name: 🔧 Configure Git
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "actions@github.com"
-          git add models/karachi_aqi_model.pkl
-          git commit -m "🤖 Retrained AQI model" || echo "No changes to commit"
-          git push https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git HEAD:${{ github.ref }}
+
+      - name: 📝 Commit changes (skip if no changes)
+        run: |
+          git add models/karachi_aqi_model.pkl data/features_karachi.csv || echo "Nothing to add"
+          git diff --cached --quiet || git commit -m "Retrained AQI model and updated features"
+
+      - name: 🚀 Push changes using PAT
+        run: |
+          git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/manavbirjani/karachi-aqi.git
+          git push origin main
