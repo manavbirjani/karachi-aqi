@@ -52,4 +52,4 @@ prediction_df = pd.DataFrame([{
 }])
 
 prediction_df.to_csv("data/daily_predictions.csv", mode='a', header=not os.path.exists("data/daily_predictions.csv"), index=False)
-print("✅ Prediction saved to data/daily_predictions.csv")
+print("Prediction saved to data/daily_predictions.csv")
