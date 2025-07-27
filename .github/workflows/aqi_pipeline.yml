@@ -27,10 +27,10 @@ jobs:
       - name: Retrain Model
         run: python train_model.py
 
-      - name: Commit and Push Updated Model via SSH
+      - name: Set up SSH and Commit Prediction
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" | base64 -d > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan github.com >> ~/.ssh/known_hosts
 
@@ -38,6 +38,7 @@ jobs:
           git config --global user.email "ci-bot@example.com"
           git remote set-url origin git@github.com:manavbirjani/karachi-aqi.git
 
-          git add models/karachi_aqi_model.pkl data/features_karachi.csv
-          git diff --cached --quiet || git commit -m "🤖 Retrained AQI model and updated features"
+          git add data/daily_predictions.csv
+          git diff --cached --quiet || git commit -m "📊 New AQI prediction"
           git push origin main
+        shell: bash
