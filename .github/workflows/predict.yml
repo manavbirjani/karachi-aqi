@@ -36,9 +36,15 @@ jobs:
         git config --global user.email "ci-bot@example.com"
 
     - name: Commit and Push Changes
+      env:
+        GH_PAT: ${{ secrets.GH_PAT }}
       run: |
-        git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git
-        git pull origin main
+        git config --global user.name "ci-bot"
+        git config --global user.email "ci-bot@example.com"
+    
         git add data/daily_predictions.csv
         git commit -m "📊 New AQI prediction" || echo "No changes to commit"
+
+        # Set remote with PAT explicitly and push
+        git remote set-url origin https://x-access-token:${GH_PAT}@github.com/${{ github.repository }}.git
         git push origin main
