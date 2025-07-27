@@ -2,11 +2,11 @@ name: Retrain AQI Model Daily
 
 on:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '30 0 * * *'  # Every day at 12:30 AM
   workflow_dispatch:
 
 jobs:
-  train:
+  retrain:
     runs-on: windows-latest
 
     steps:
@@ -21,14 +21,14 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run training script
+      - name: Run training pipeline
         run: python train_model.py
 
-      - name: Push retrained model
+      - name: Commit and Push Model + Features
         shell: bash
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY_BASE64 }}" | base64 -d > ~/.ssh/id_rsa
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" | base64 -d > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan github.com >> ~/.ssh/known_hosts
 
@@ -36,7 +36,10 @@ jobs:
           git config --global user.email "ci-bot@example.com"
           git remote set-url origin git@github.com:manavbirjani/karachi-aqi.git
 
+          git stash
           git pull origin main --rebase
+          git stash pop || true
+
           git add models/karachi_aqi_model.pkl data/features_karachi.csv
           git diff --cached --quiet || git commit -m "🤖 Retrained AQI model and updated features"
           git push origin main

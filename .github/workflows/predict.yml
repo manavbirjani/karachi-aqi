@@ -2,7 +2,7 @@ name: Predict AQI Every 3 Hours
 
 on:
   schedule:
-    - cron: '0 */3 * * *'
+    - cron: '0 */3 * * *'  # Every 3 hours
   workflow_dispatch:
 
 jobs:
@@ -21,14 +21,14 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run prediction script
+      - name: Run prediction
         run: python predict_today.py
 
-      - name: Push changes
+      - name: Commit and Push Prediction
         shell: bash
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY_BASE64 }}" | base64 -d > ~/.ssh/id_rsa
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" | base64 -d > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan github.com >> ~/.ssh/known_hosts
 
@@ -36,7 +36,10 @@ jobs:
           git config --global user.email "ci-bot@example.com"
           git remote set-url origin git@github.com:manavbirjani/karachi-aqi.git
 
+          git stash
           git pull origin main --rebase
+          git stash pop || true
+
           git add data/daily_predictions.csv
           git diff --cached --quiet || git commit -m "📊 New AQI prediction"
           git push origin main
