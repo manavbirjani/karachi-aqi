@@ -1,35 +1,38 @@
-name: Predict AQI
+name: Predict AQI Every 3 Hours
 
 on:
-  workflow_dispatch:
   schedule:
-    - cron: "0 */3 * * *"  # Every 3 hours
+    - cron: '0 */3 * * *'  # Every 3 hours
+  workflow_dispatch:
 
 jobs:
   predict:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.11
+          python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: Run Prediction
-        run: python predict_today.py
+      - name: Run prediction script
         env:
           AQI_API_TOKEN: ${{ secrets.AQI_API_TOKEN }}
+        run: python predict_today.py
 
-      - name: Set up SSH and Commit Prediction
+      - name: Decode SSH Key and Push Prediction
+        shell: bash
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          echo "${{ secrets.SSH_PRIVATE_KEY_B64 }}" | base64 -d > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan github.com >> ~/.ssh/known_hosts
 
