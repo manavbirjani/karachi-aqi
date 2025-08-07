@@ -1,0 +1,14 @@
+artifact_uri: file:///D:/6B/karachi_aqi_predictor_with_docker_github/mlruns/269136563209169563/e6f24006178b427ebb57d7280d273465/artifacts
+end_time: 1754572112711
+entry_point_name: ''
+experiment_id: '269136563209169563'
+lifecycle_stage: active
+run_id: e6f24006178b427ebb57d7280d273465
+run_name: kindly-eel-946
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1754572098144
+status: 3
+tags: []
+user_id: Manav

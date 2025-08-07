@@ -1,23 +1,22 @@
 import pandas as pd
 import pickle
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error
+import numpy as np
+import mlflow
+import mlflow.sklearn
 
-# Load the correct CSV file
+# Load the CSV data
 df = pd.read_csv("data/raw_aqi_data_karachi.csv")
 
-# Rename column "03" to "o3" if needed
+# Fix columns
 df.rename(columns={"03": "o3"}, inplace=True)
-
-# Rename "datetime" to "timestamp" for clarity and consistency
 df.rename(columns={"datetime": "timestamp"}, inplace=True)
 
-# Convert timestamp column safely (invalid rows will become NaT)
 df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
-
-# Drop rows with invalid timestamps
 df.dropna(subset=["timestamp"], inplace=True)
 
-# Fill missing pollutants with 0 if they don’t exist
+# Fill missing pollutants with 0 if any column is missing
 for col in ["pm25", "pm10", "o3", "co", "no2", "so2"]:
     if col not in df.columns:
         df[col] = 0.0
@@ -27,17 +26,33 @@ df["hour"] = df["timestamp"].dt.hour
 df["day"] = df["timestamp"].dt.day
 df["month"] = df["timestamp"].dt.month
 
-# Define input features and target
+# Features and Target
 features = ["pm25", "pm10", "o3", "co", "no2", "so2", "hour", "day", "month"]
 X = df[features]
 y = df["aqi"]
 
-# Train the model
-model = RandomForestRegressor()
+# Train Model
+model = RandomForestRegressor(max_depth=10)
 model.fit(X, y)
 
-# Save the model
+# Evaluate
+y_pred = model.predict(X)
+rmse = np.sqrt(mean_squared_error(y, y_pred))
+print(f"✅ Model Trained | RMSE: {rmse:.2f}")
+
+# Save model locally
 with open("models/karachi_aqi_model.pkl", "wb") as f:
     pickle.dump(model, f)
 
-print(" Model trained successfully.")
+# Track with MLflow
+mlflow.set_experiment("Karachi_AQI_Model")
+
+with mlflow.start_run():
+    mlflow.log_params({
+        "model": "RandomForest",
+        "max_depth": 10
+    })
+    mlflow.log_metric("rmse", rmse)
+    mlflow.sklearn.log_model(model, "random_forest_model")
+
+print("✅ Model & metrics logged in MLflow")
