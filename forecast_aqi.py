@@ -11,11 +11,11 @@ with open("models/karachi_aqi_model.pkl", "rb") as f:
 # Load latest pollutant features
 latest_features_file = "data/features_karachi.csv"
 if not os.path.exists(latest_features_file):
-    raise FileNotFoundError("❌ features_karachi.csv not found!")
+    raise FileNotFoundError("features_karachi.csv not found!")
 
 features_df = pd.read_csv(latest_features_file)
 if features_df.empty:
-    raise ValueError("❌ features_karachi.csv is empty!")
+    raise ValueError("features_karachi.csv is empty!")
 
 # Get latest pollutant averages (you can improve this using recent hours)
 avg_pm25 = features_df["pm25"].mean()
@@ -57,4 +57,4 @@ forecast_df["prediction_time"] = [now + timedelta(hours=i * 3) for i in range(24
 # Save to CSV
 output_path = "data/forecast_3day.csv"
 forecast_df.to_csv(output_path, index=False)
-print(f"✅ Forecast saved to {output_path}")
+print(f"Forecast saved to {output_path}")
