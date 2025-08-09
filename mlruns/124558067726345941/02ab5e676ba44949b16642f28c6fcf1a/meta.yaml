@@ -1,0 +1,14 @@
+artifact_uri: file:///D:/6B/karachi_aqi_predictor_with_docker_github/mlruns/124558067726345941/02ab5e676ba44949b16642f28c6fcf1a/artifacts
+end_time: 1754744251367
+entry_point_name: ''
+experiment_id: '124558067726345941'
+lifecycle_stage: active
+run_id: 02ab5e676ba44949b16642f28c6fcf1a
+run_name: charming-panda-737
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1754744234386
+status: 3
+tags: []
+user_id: Manav

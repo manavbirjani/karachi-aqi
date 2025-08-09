@@ -1,8 +1,11 @@
 pandas
-requests
-joblib
+numpy
 scikit-learn
-streamlit
-python-dotenv
-plotly
+joblib
 mlflow
+streamlit
+plotly
+pyarrow
+shap
+requests
+matplotlib

@@ -1,0 +1,14 @@
+artifact_uri: file:///D:/6B/karachi_aqi_predictor_with_docker_github/mlruns/124558067726345941/0cb87df90d4e4ee89e69bb68ef1b2cbd/artifacts
+end_time: 1754746660820
+entry_point_name: ''
+experiment_id: '124558067726345941'
+lifecycle_stage: active
+run_id: 0cb87df90d4e4ee89e69bb68ef1b2cbd
+run_name: bold-zebra-563
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1754746645962
+status: 3
+tags: []
+user_id: Manav
