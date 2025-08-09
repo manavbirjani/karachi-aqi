@@ -9,3 +9,5 @@ pyarrow
 shap
 requests
 matplotlib
+python-dotenv
+
