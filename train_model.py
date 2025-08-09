@@ -38,7 +38,7 @@ model.fit(X, y)
 # Evaluate
 y_pred = model.predict(X)
 rmse = np.sqrt(mean_squared_error(y, y_pred))
-print(f"✅ Model Trained | RMSE: {rmse:.2f}")
+print(f"Model Trained | RMSE: {rmse:.2f}")
 
 # Save model locally
 with open("models/karachi_aqi_model.pkl", "wb") as f:
@@ -55,4 +55,4 @@ with mlflow.start_run():
     mlflow.log_metric("rmse", rmse)
     mlflow.sklearn.log_model(model, "random_forest_model")
 
-print("✅ Model & metrics logged in MLflow")
+print(" Model & metrics logged in MLflow")
