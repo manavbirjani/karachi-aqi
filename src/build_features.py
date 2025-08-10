@@ -1,4 +1,3 @@
-# src/build_features.py
 """
 Compute features and append to data/features_store.csv
 
@@ -20,6 +19,15 @@ def load_preds():
     df = df.sort_values("prediction_time").reset_index(drop=True)
     return df
 
+def safe_float(val):
+    """Convert to float safely, replace NaN with 0."""
+    if pd.isna(val):
+        return 0.0
+    try:
+        return float(val)
+    except Exception:
+        return 0.0
+
 def compute_and_append():
     df = load_preds()
     if df.empty:
@@ -30,12 +38,15 @@ def compute_and_append():
     rows = []
     for i in range(len(df)):
         row = df.iloc[i]
-        prev_pm25 = df.iloc[i-1]["pm25"] if i-1 >= 0 else None
-        pm25 = float(row.get("pm25", 0))
-        pm10 = float(row.get("pm10", 0))
-        o3 = float(row.get("o3", 0))
+        prev_pm25 = safe_float(df.iloc[i-1]["pm25"]) if i-1 >= 0 else None
+        pm25 = safe_float(row.get("pm25", 0))
+        pm10 = safe_float(row.get("pm10", 0))
+        o3 = safe_float(row.get("o3", 0))
         ts = pd.to_datetime(row["prediction_time"])
+
+        # PM2.5 change calculation
         pm25_change = pm25 - (prev_pm25 if prev_pm25 is not None else pm25)
+
         rows.append({
             "timestamp": ts,
             "pm25": pm25,
@@ -48,6 +59,9 @@ def compute_and_append():
         })
 
     feat_df = pd.DataFrame(rows)
+
+    # Remove any rows where all main features are NaN (extra safety)
+    feat_df = feat_df.fillna(0)
 
     # Append only new rows that are not present in features_store (based on timestamp)
     if os.path.exists(FEATURES_PATH):

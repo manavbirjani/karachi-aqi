@@ -1,58 +1,66 @@
+# train_model.py
+"""
+Train AQI Prediction Model
+Loads features from data/features_store.csv
+Trains a RandomForestRegressor and saves the model to models/
+"""
+
+import os
 import pandas as pd
-import pickle
+import joblib
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
-import numpy as np
-import mlflow
-import mlflow.sklearn
+from datetime import datetime
 
-# Load the CSV data
-df = pd.read_csv("data/raw_aqi_data_karachi.csv")
+FEATURES_PATH = "data/features_store.csv"
+MODELS_DIR = "models"
 
-# Fix columns
-df.rename(columns={"03": "o3"}, inplace=True)
-df.rename(columns={"datetime": "timestamp"}, inplace=True)
+def train_model():
+    if not os.path.exists(FEATURES_PATH):
+        raise FileNotFoundError(f"{FEATURES_PATH} not found. Run build_features.py first.")
 
-df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
-df.dropna(subset=["timestamp"], inplace=True)
+    df = pd.read_csv(FEATURES_PATH)
+    print(f"Loaded {len(df)} rows from {FEATURES_PATH}")
 
-# Fill missing pollutants with 0 if any column is missing
-for col in ["pm25", "pm10", "o3", "co", "no2", "so2"]:
-    if col not in df.columns:
-        df[col] = 0.0
+    # Choose target column
+    target_col = "aqi" if "aqi" in df.columns else None
+    if not target_col:
+        print("⚠ Warning: 'aqi' column not found. Using pm25 as target instead.")
+        target_col = "pm25"
 
-# Extract time-based features
-df["hour"] = df["timestamp"].dt.hour
-df["day"] = df["timestamp"].dt.day
-df["month"] = df["timestamp"].dt.month
+    # Drop rows where target is NaN
+    df = df.dropna(subset=[target_col])
+    if df.empty:
+        raise ValueError(f"No rows left after dropping NaN from target column '{target_col}'.")
 
-# Features and Target
-features = ["pm25", "pm10", "o3", "co", "no2", "so2", "hour", "day", "month"]
-X = df[features]
-y = df["aqi"]
+    # Prepare features
+    X = df.drop(columns=["timestamp", target_col], errors="ignore")
+    y = df[target_col]
 
-# Train Model
-model = RandomForestRegressor(max_depth=10)
-model.fit(X, y)
+    # Train-test split
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
 
-# Evaluate
-y_pred = model.predict(X)
-rmse = np.sqrt(mean_squared_error(y, y_pred))
-print(f"Model Trained | RMSE: {rmse:.2f}")
+    # Train model
+    model = RandomForestRegressor(random_state=42)
+    model.fit(X_train, y_train)
 
-# Save model locally
-with open("models/karachi_aqi_model.pkl", "wb") as f:
-    pickle.dump(model, f)
+    # Predict & Calculate RMSE manually (for old sklearn)
+    y_pred = model.predict(X_test)
+    rmse = mean_squared_error(y_test, y_pred) ** 0.5
 
-# Track with MLflow
-mlflow.set_experiment("Karachi_AQI_Model")
+    # Save model with timestamp
+    os.makedirs(MODELS_DIR, exist_ok=True)
+    model_path = os.path.join(
+        MODELS_DIR,
+        f"karachi_aqi_model-{datetime.now().strftime('%Y%m%d-%H%M%S')}.pkl"
+    )
+    joblib.dump(model, model_path)
 
-with mlflow.start_run():
-    mlflow.log_params({
-        "model": "RandomForest",
-        "max_depth": 10
-    })
-    mlflow.log_metric("rmse", rmse)
-    mlflow.sklearn.log_model(model, "random_forest_model")
+    print(f"Model saved to {model_path}")
+    print(f"Model Trained | RMSE: {rmse:.2f}")
 
-print(" Model & metrics logged in MLflow")
+if __name__ == "__main__":
+    train_model()

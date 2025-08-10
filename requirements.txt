@@ -10,4 +10,5 @@ shap
 requests
 matplotlib
 python-dotenv
-
+statsmodels
+seaborn
