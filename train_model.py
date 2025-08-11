@@ -1,4 +1,3 @@
-
 import os
 import pandas as pd
 import joblib
@@ -20,7 +19,7 @@ def train_model():
     # Choose target column
     target_col = "aqi" if "aqi" in df.columns else None
     if not target_col:
-        print("'aqi' column not found. Using pm25 as target instead.")
+        print("Warning: 'aqi' column not found. Using pm25 as target instead.")
         target_col = "pm25"
 
     # Drop rows where target is NaN
@@ -41,16 +40,13 @@ def train_model():
     model = RandomForestRegressor(random_state=42)
     model.fit(X_train, y_train)
 
-    # Predict & Calculate RMSE manually (for old sklearn)
+    # Predict & Calculate RMSE
     y_pred = model.predict(X_test)
     rmse = mean_squared_error(y_test, y_pred) ** 0.5
 
-    # Save model with timestamp
+    # Save model with fixed name for CI/CD
     os.makedirs(MODELS_DIR, exist_ok=True)
-    model_path = os.path.join(
-        MODELS_DIR,
-        f"karachi_aqi_model-{datetime.now().strftime('%Y%m%d-%H%M%S')}.pkl"
-    )
+    model_path = os.path.join(MODELS_DIR, "karachi_aqi_model.pkl")
     joblib.dump(model, model_path)
 
     print(f"Model saved to {model_path}")

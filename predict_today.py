@@ -1,73 +1,60 @@
+import os
 import requests
 import pandas as pd
-import pickle
+import joblib
 from datetime import datetime
-import os
-from dotenv import load_dotenv
 
-# Load .env vars
-load_dotenv()
 API_TOKEN = os.getenv("AQI_API_TOKEN")
-if not API_TOKEN:
-    raise ValueError("AQI_API_TOKEN not set in environment variables.")
+CITY = "karachi"
+MODEL_PATH = "models/karachi_aqi_model.pkl"
 
-# API call
-url = f"https://api.waqi.info/feed/karachi/?token={API_TOKEN}"
-response = requests.get(url)
-data = response.json()
+def fetch_live_data():
+    url = f"https://api.waqi.info/feed/{CITY}/?token={API_TOKEN}"
+    response = requests.get(url)
+    data = response.json()
 
-if data["status"] != "ok":
-    raise ValueError("Failed to fetch AQI data")
+    pm25 = data["data"]["iaqi"].get("pm25", {}).get("v", 0.0)
+    pm10 = data["data"]["iaqi"].get("pm10", {}).get("v", 0.0)
+    o3 = data["data"]["iaqi"].get("o3", {}).get("v", 0.0)
+    co = data["data"]["iaqi"].get("co", {}).get("v", 0.0)
+    no2 = data["data"]["iaqi"].get("no2", {}).get("v", 0.0)
+    so2 = data["data"]["iaqi"].get("so2", {}).get("v", 0.0)
 
-iaqi = data["data"].get("iaqi", {})
+    now = datetime.utcnow()
+    features = pd.DataFrame([{
+        "pm25": pm25,
+        "pm10": pm10,
+        "o3": o3,
+        "co": co,
+        "no2": no2,
+        "so2": so2,
+        "hour": now.hour,
+        "day": now.day,
+        "month": now.month
+    }])
+    return features
 
-# Safe feature getter
-def get_value(key):
-    return iaqi.get(key, {}).get("v", 0.0)
+if __name__ == "__main__":
+    model = joblib.load(MODEL_PATH)
 
-# Feature extraction
-features = {
-    "pm25": get_value("pm25"),
-    "pm10": get_value("pm10"),
-    "o3": get_value("o3"),
-    "co": get_value("co"),
-    "no2": get_value("no2"),
-    "so2": get_value("so2"),
-}
+    X_today = fetch_live_data()
+    print("Features used for prediction:")
+    print(X_today)
 
-# Add datetime features
-now = datetime.now()
-features["hour"] = now.hour
-features["day"] = now.day
-features["month"] = now.month
+    prediction = model.predict(X_today)[0]
+    print(f"Predicted AQI: {prediction:.2f}")
 
-df = pd.DataFrame([features])
-print("Features used for prediction:")
-print(df)
+    os.makedirs("data", exist_ok=True)
+    pred_file = "data/daily_predictions.csv"
 
-# Load model
-with open("models/karachi_aqi_model.pkl", "rb") as f:
-    model = pickle.load(f)
+    df = pd.DataFrame([{
+        "timestamp": datetime.utcnow().isoformat(),
+        "predicted_aqi": prediction
+    }])
 
-# Predict
-try:
-    prediction = model.predict(df)[0]
-except Exception as e:
-    print("Prediction failed:", e)
-    raise
+    if os.path.exists(pred_file):
+        df.to_csv(pred_file, mode="a", header=False, index=False)
+    else:
+        df.to_csv(pred_file, index=False)
 
-# Save output
-output_file = "data/daily_predictions.csv"
-row = {
-    "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"),
-    "predicted_aqi": prediction
-}
-df_out = pd.DataFrame([row])
-
-if os.path.exists(output_file):
-    df_out.to_csv(output_file, mode='a', header=False, index=False)
-else:
-    df_out.to_csv(output_file, index=False)
-
-print(f"Predicted AQI: {prediction:.2f}")
-print(f"Prediction saved to {output_file}")
+    print(f"Prediction saved to {pred_file}")
