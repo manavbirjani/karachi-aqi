@@ -20,7 +20,7 @@ def train_model():
     # Choose target column
     target_col = "aqi" if "aqi" in df.columns else None
     if not target_col:
-        print("⚠ Warning: 'aqi' column not found. Using pm25 as target instead.")
+        print("'aqi' column not found. Using pm25 as target instead.")
         target_col = "pm25"
 
     # Drop rows where target is NaN
