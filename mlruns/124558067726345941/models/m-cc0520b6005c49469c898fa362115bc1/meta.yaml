@@ -1,0 +1,10 @@
+artifact_location: file:///D:/6B/karachi_aqi_predictor_with_docker_github/mlruns/124558067726345941/models/m-cc0520b6005c49469c898fa362115bc1/artifacts
+creation_timestamp: 1754744234593
+experiment_id: '124558067726345941'
+last_updated_timestamp: 1754744251318
+model_id: m-cc0520b6005c49469c898fa362115bc1
+model_type: null
+name: random_forest_model
+source_run_id: 02ab5e676ba44949b16642f28c6fcf1a
+status: 2
+status_message: null

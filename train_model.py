@@ -1,9 +1,3 @@
-# train_model.py
-"""
-Train AQI Prediction Model
-Loads features from data/features_store.csv
-Trains a RandomForestRegressor and saves the model to models/
-"""
 
 import os
 import pandas as pd

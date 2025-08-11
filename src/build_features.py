@@ -1,10 +1,3 @@
-"""
-Compute features and append to data/features_store.csv
-
-Input source: data/daily_predictions.csv
-Output: data/features_store.csv (append)
-Columns: timestamp, pm25, pm10, o3, hour, day, month, pm25_change
-"""
 
 import pandas as pd
 import os

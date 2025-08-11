@@ -1,7 +1,3 @@
-"""
-EDA (Exploratory Data Analysis) Script for Karachi AQI Project
-Generates visualizations & summary statistics for AQI dataset.
-"""
 
 import pandas as pd
 import matplotlib.pyplot as plt

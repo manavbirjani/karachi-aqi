@@ -1,0 +1,22 @@
+artifact_path: file:///D:/6B/karachi_aqi_predictor_with_docker_github/mlruns/124558067726345941/models/m-990a158115ae4133a48c790b6430db8d/artifacts
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.11.9
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 1.7.0
+mlflow_version: 3.1.4
+model_id: m-990a158115ae4133a48c790b6430db8d
+model_size_bytes: 253067
+model_uuid: m-990a158115ae4133a48c790b6430db8d
+prompts: null
+run_id: d75b14923d6a464d8eea112e11df6652
+utc_time_created: '2025-08-09 11:19:50.365252'

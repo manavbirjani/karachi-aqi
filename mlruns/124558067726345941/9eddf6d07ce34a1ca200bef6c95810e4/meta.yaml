@@ -1,0 +1,14 @@
+artifact_uri: file:///D:/6B/karachi_aqi_predictor_with_docker_github/mlruns/124558067726345941/9eddf6d07ce34a1ca200bef6c95810e4/artifacts
+end_time: 1754741495728
+entry_point_name: ''
+experiment_id: '124558067726345941'
+lifecycle_stage: active
+run_id: 9eddf6d07ce34a1ca200bef6c95810e4
+run_name: burly-shad-809
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1754741482160
+status: 3
+tags: []
+user_id: Manav

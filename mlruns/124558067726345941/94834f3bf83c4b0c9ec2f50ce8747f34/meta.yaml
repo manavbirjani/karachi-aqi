@@ -1,0 +1,14 @@
+artifact_uri: file:///D:/6B/karachi_aqi_predictor_with_docker_github/mlruns/124558067726345941/94834f3bf83c4b0c9ec2f50ce8747f34/artifacts
+end_time: 1754773451548
+entry_point_name: ''
+experiment_id: '124558067726345941'
+lifecycle_stage: active
+run_id: 94834f3bf83c4b0c9ec2f50ce8747f34
+run_name: debonair-sponge-888
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1754773445292
+status: 3
+tags: []
+user_id: Manav

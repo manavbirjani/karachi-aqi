@@ -1,0 +1,14 @@
+artifact_uri: file:///D:/6B/karachi_aqi_predictor_with_docker_github/mlruns/124558067726345941/d75b14923d6a464d8eea112e11df6652/artifacts
+end_time: 1754738404264
+entry_point_name: ''
+experiment_id: '124558067726345941'
+lifecycle_stage: active
+run_id: d75b14923d6a464d8eea112e11df6652
+run_name: angry-perch-380
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1754738390180
+status: 3
+tags: []
+user_id: Manav
