@@ -42,6 +42,6 @@ jobs:
           git config --global user.email "ci-bot@example.com"
           git remote set-url origin git@github.com:manavbirjani/karachi-aqi.git
 
-          git add models/karachi_aqi_model.pkl data/forecast_predictions.csv
+          git add models/karachi_aqi_model.pkl data/forecast_3day.csv
           git diff --cached --quiet || git commit -m "📈 New AQI forecast"
           git push origin main
