@@ -1,84 +1,65 @@
+# forecast_aqi.py (replace)
 import os
-import pandas as pd
 import joblib
-import requests
+import pandas as pd
 from datetime import datetime, timedelta
-from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
-API_TOKEN = os.getenv("AQI_API_TOKEN")
-CITY = "karachi"
 MODEL_PATH = "models/karachi_aqi_model.pkl"
-FORECAST_FILE = "data/forecast_predictions.csv"
+LATEST_FEATURES = "data/features_karachi.csv"  # or data/features_store.csv
+OUTPUT = "data/forecast_3day.csv"
 
-def fetch_forecast_data():
-    """Fetch next 3 days AQI forecast data from WAQI API."""
-    if not API_TOKEN:
-        raise ValueError("API token not found. Please set AQI_API_TOKEN in .env file.")
+def load_model():
+    if not os.path.exists(MODEL_PATH):
+        raise FileNotFoundError("Model not found. Run training first.")
+    return joblib.load(MODEL_PATH)
 
-    url = f"https://api.waqi.info/forecast/{CITY}/?token={API_TOKEN}"
-    response = requests.get(url)
+def get_base_averages():
+    if not os.path.exists(LATEST_FEATURES):
+        raise FileNotFoundError(f"{LATEST_FEATURES} not found.")
+    df = pd.read_csv(LATEST_FEATURES)
+    return {
+        "pm25": df.get("pm25", pd.Series([0])).mean(),
+        "pm10": df.get("pm10", pd.Series([0])).mean(),
+        "o3": df.get("o3", pd.Series([0])).mean(),
+        "co": df.get("co", pd.Series([0])).mean(),
+        "no2": df.get("no2", pd.Series([0])).mean(),
+        "so2": df.get("so2", pd.Series([0])).mean(),
+    }
 
-    if response.status_code != 200:
-        raise RuntimeError(f"API request failed with status {response.status_code}")
-
-    data = response.json()
-    if data.get("status") != "ok":
-        raise ValueError(f"API returned error: {data}")
-
-    forecast_list = []
+def forecast_next_3_days():
+    model = load_model()
+    base = get_base_averages()
     now = datetime.now()
-
-    for i in range(1, 4):  # next 3 days
-        forecast_date = now + timedelta(days=i)
-        forecast_list.append({
-            "pm25": 0.0,  # API se available ho toh update karein
-            "pm10": 0.0,
-            "o3": 0.0,
-            "co": 0.0,
-            "no2": 0.0,
-            "so2": 0.0,
-            "hour": 12,  # fixed midday prediction
-            "day": forecast_date.day,
-            "month": forecast_date.month
+    rows = []
+    for i in range(24):  # every 3 hours, 24 points = 3 days
+        t = now + timedelta(hours=3*i)
+        rows.append({
+            "pm25": base["pm25"],
+            "pm10": base["pm10"],
+            "o3": base["o3"],
+            "co": base["co"],
+            "no2": base["no2"],
+            "so2": base["so2"],
+            "hour": t.hour,
+            "day": t.day,
+            "month": t.month,
+            "pm25_change": 0.0,
+            "prediction_time": t.strftime("%Y-%m-%d %H:%M:%S")
         })
-
-    return pd.DataFrame(forecast_list)
+    df = pd.DataFrame(rows)
+    # align to model features
+    if hasattr(model, "feature_names_in_"):
+        feature_names = list(model.feature_names_in_)
+    else:
+        feature_names = ["pm25","pm10","o3","co","no2","so2","hour","day","month","pm25_change"]
+    # ensure columns present
+    for c in feature_names:
+        if c not in df.columns:
+            df[c] = 0.0
+    X = df[feature_names]
+    df["predicted_aqi"] = model.predict(X)
+    df.to_csv(OUTPUT, index=False)
+    print("Forecast saved to", OUTPUT)
 
 if __name__ == "__main__":
-    # Load model
-    if not os.path.exists(MODEL_PATH):
-        raise FileNotFoundError(f"Model file not found at {MODEL_PATH}. Train the model first.")
-
-    model = joblib.load(MODEL_PATH)
-
-    # Get forecast data
-    forecast_df = fetch_forecast_data()
-
-    # Align features
-    missing_cols = [col for col in model.feature_names_in_ if col not in forecast_df.columns]
-    for col in missing_cols:
-        forecast_df[col] = 0.0
-
-    forecast_df = forecast_df[model.feature_names_in_]
-
-    # Predict
-    predictions = model.predict(forecast_df)
-
-    # Save predictions
-    os.makedirs(os.path.dirname(FORECAST_FILE), exist_ok=True)
-    results = []
-    for i, pred in enumerate(predictions, 1):
-        results.append({
-            "timestamp": (datetime.now() + timedelta(days=i)).strftime("%Y-%m-%d"),
-            "predicted_aqi": pred
-        })
-
-    df_results = pd.DataFrame(results)
-    if os.path.exists(FORECAST_FILE):
-        df_results.to_csv(FORECAST_FILE, mode="a", header=False, index=False)
-    else:
-        df_results.to_csv(FORECAST_FILE, index=False)
-
-    print(f"Forecast for next 3 days saved to {FORECAST_FILE}")
+    forecast_next_3_days()

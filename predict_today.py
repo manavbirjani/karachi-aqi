@@ -1,75 +1,78 @@
+# predict_today.py (replace)
 import os
-import pandas as pd
 import joblib
+import pandas as pd
 import requests
 from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
 API_TOKEN = os.getenv("AQI_API_TOKEN")
-CITY = "karachi"
 MODEL_PATH = "models/karachi_aqi_model.pkl"
-PREDICTIONS_FILE = "data/daily_predictions.csv"
+OUT_PATH = "data/daily_predictions.csv"
+
+# default feature ordering used in training
+DEFAULT_FEATURES = ["pm25", "pm10", "o3", "co", "no2", "so2", "hour", "day", "month", "pm25_change"]
 
 def fetch_live_data():
     if not API_TOKEN:
-        raise ValueError("API token not found. Please set AQI_API_TOKEN in .env file.")
-    url = f"https://api.waqi.info/feed/{CITY}/?token={API_TOKEN}"
-    response = requests.get(url)
-    if response.status_code != 200:
-        raise RuntimeError(f"API request failed with status {response.status_code}")
-    data = response.json()
+        raise RuntimeError("AQI_API_TOKEN not set in environment variables.")
+    url = f"https://api.waqi.info/feed/karachi/?token={API_TOKEN}"
+    r = requests.get(url, timeout=10)
+    data = r.json()
     if data.get("status") != "ok":
-        raise ValueError(f"API returned error: {data}")
-    iaqi = data["data"]["iaqi"]
+        raise RuntimeError(f"API returned error: {data}")
+    iaqi = data["data"].get("iaqi", {})
+    def val(k): return float(iaqi.get(k, {}).get("v", 0.0))
     now = datetime.now()
-
-    features = {
-        "pm25_change": 1.0,  # fixed test value for pm25_change
-        "pm10": iaqi.get("pm10", {}).get("v", 0.0),
-        "o3": iaqi.get("o3", {}).get("v", 0.0),
+    # try to compute pm25_change using last features if available
+    pm25_change = 0.0
+    # Build dict
+    row = {
+        "pm25": val("pm25"),
+        "pm10": val("pm10"),
+        "o3": val("o3"),
+        "co": val("co"),
+        "no2": val("no2"),
+        "so2": val("so2"),
         "hour": now.hour,
         "day": now.day,
-        "month": now.month
+        "month": now.month,
+        "pm25_change": pm25_change
     }
-    return pd.DataFrame([features])
+    return pd.DataFrame([row]), now
+
+def load_model():
+    if not os.path.exists(MODEL_PATH):
+        raise FileNotFoundError(f"Model not found at {MODEL_PATH}. Run train_model.py")
+    return joblib.load(MODEL_PATH)
+
+def align_features(df, model):
+    # get feature names expected by model
+    if hasattr(model, "feature_names_in_"):
+        feature_names = list(model.feature_names_in_)
+    else:
+        feature_names = DEFAULT_FEATURES
+    # add missing cols with zeros and drop extras
+    for c in feature_names:
+        if c not in df.columns:
+            df[c] = 0.0
+    df = df[feature_names]
+    return df, feature_names
+
+def append_prediction(ts, pred):
+    os.makedirs(os.path.dirname(OUT_PATH) or ".", exist_ok=True)
+    row = {"prediction_time": ts.strftime("%Y-%m-%d %H:%M:%S"), "aqi_predicted": float(pred)}
+    df_out = pd.DataFrame([row])
+    if os.path.exists(OUT_PATH):
+        df_out.to_csv(OUT_PATH, mode="a", header=False, index=False)
+    else:
+        df_out.to_csv(OUT_PATH, index=False)
 
 if __name__ == "__main__":
-    if not os.path.exists(MODEL_PATH):
-        raise FileNotFoundError(f"Model file not found at {MODEL_PATH}. Train the model first.")
-
-    model = joblib.load(MODEL_PATH)
-    print("Model loaded successfully")
-    print("Model expects features:", model.feature_names_in_)
-
-    X_today = fetch_live_data()
-    print("Input data columns:", list(X_today.columns))
-
-    missing_cols = [col for col in model.feature_names_in_ if col not in X_today.columns]
-    extra_cols = [col for col in X_today.columns if col not in model.feature_names_in_]
-
-    print("Missing columns in input data (will be added with 0):", missing_cols)
-    print("Extra columns in input data (will be dropped):", extra_cols)
-
-    for col in missing_cols:
-        X_today[col] = 0.0
-
-    X_today = X_today[[col for col in model.feature_names_in_]]
-
-    # Fill any NaN values with 0 before prediction
-    X_today.fillna(0, inplace=True)
-
-    print("Final columns sent to model:", list(X_today.columns))
-
-    prediction = model.predict(X_today)[0]
-    print(f"[{datetime.now()}] Predicted AQI for {CITY}: {prediction:.2f}")
-
-    os.makedirs(os.path.dirname(PREDICTIONS_FILE), exist_ok=True)
-    df_pred = pd.DataFrame([{
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "predicted_aqi": prediction
-    }])
-    if os.path.exists(PREDICTIONS_FILE):
-        df_pred.to_csv(PREDICTIONS_FILE, mode="a", header=False, index=False)
-    else:
-        df_pred.to_csv(PREDICTIONS_FILE, index=False)
+    df_feat, ts = fetch_live_data()
+    model = load_model()
+    df_aligned, feat_names = align_features(df_feat, model)
+    pred = model.predict(df_aligned)[0]
+    append_prediction(ts, pred)
+    print(f"Predicted AQI: {pred:.2f} at {ts}")
