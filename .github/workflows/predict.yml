@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          lfs: true  # in case model file is large
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -20,6 +22,10 @@ jobs:
 
       - name: Install dependencies
         run: pip install -r requirements.txt
+
+      # 🔹 NEW STEP — retrain model in same environment
+      - name: Retrain model
+        run: python train_model.py
 
       - name: Run prediction
         run: python predict_today.py
@@ -40,6 +46,6 @@ jobs:
           git pull origin main --rebase
           git stash pop || true
 
-          git add data/daily_predictions.csv
-          git diff --cached --quiet || git commit -m "📊 New AQI prediction"
+          git add data/daily_predictions.csv models/karachi_aqi_model.pkl
+          git diff --cached --quiet || git commit -m "📊 New AQI prediction (with retrained model)"
           git push origin main
