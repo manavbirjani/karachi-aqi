@@ -47,7 +47,7 @@ def train_model():
     # Save model with fixed name for CI/CD
     os.makedirs(MODELS_DIR, exist_ok=True)
     model_path = os.path.join(MODELS_DIR, "karachi_aqi_model.pkl")
-    joblib.dump(model, model_path)
+    joblib.dump(model, model_path, compress=3, protocol=4)
 
     print(f"Model saved to {model_path}")
     print(f"Model Trained | RMSE: {rmse:.2f}")
