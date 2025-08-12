@@ -1,8 +1,8 @@
-name: 📅 Forecast 3-Day AQI
+name: Forecast AQI Daily
 
 on:
   schedule:
-    - cron: "0 2 * * *"  # Runs daily at 7:00 AM Pakistan time (UTC+5)
+    - cron: '0 0 * * *'  # Daily at midnight UTC
   workflow_dispatch:
 
 jobs:
@@ -10,33 +10,38 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: ⬇️ Checkout repo
-        uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: 🐍 Set up Python
-        uses: actions/setup-python@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: 3.11
 
-      - name: 📦 Install dependencies
-        run: |
-          pip install -r requirements.txt
+      - name: Install dependencies
+        run: pip install -r requirements.txt
 
-      - name: 🧠 Run forecast script
+      # Step 1: Retrain the model to avoid KeyError: 118
+      - name: Retrain model
+        run: python train_model.py
+
+      # Step 2: Run the forecast script
+      - name: Run Forecast
         run: python forecast_aqi.py
 
-      - name: 🔐 Setup SSH for push
+      # Step 3: Commit & Push results via SSH
+      - name: Commit and Push Forecast
+        shell: bash
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" | base64 -d > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan github.com >> ~/.ssh/known_hosts
+
           git config --global user.name "ci-bot"
           git config --global user.email "ci-bot@example.com"
           git remote set-url origin git@github.com:manavbirjani/karachi-aqi.git
 
-      - name: 📤 Commit forecast file
-        run: |
-          git add data/forecast_3day.csv
-          git diff --cached --quiet || git commit -m "📅 New 3-day AQI forecast"
+          git add models/karachi_aqi_model.pkl data/forecast_predictions.csv
+          git diff --cached --quiet || git commit -m "📈 New AQI forecast"
           git push origin main
