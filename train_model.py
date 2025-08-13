@@ -1,50 +1,55 @@
-# train_model.py  (replace your file with this)
-import os
 import pandas as pd
-import joblib
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
-from datetime import datetime
+import numpy as np
+import joblib
 
-FEATURES_PATH = "data/features_store.csv"
-MODELS_DIR = "models"
-MODEL_PATH = os.path.join(MODELS_DIR, "karachi_aqi_model.pkl")
+# === CONFIG ===
+RAW_DATA_CSV = "data/raw_aqi_data_karachi.csv"
+MODEL_PATH = "karachi_aqi_model.pkl"
+VALIDATION_SPLIT = True  # Set False if no validation needed
 
-def train_model():
-    if not os.path.exists(FEATURES_PATH):
-        raise FileNotFoundError(f"{FEATURES_PATH} not found. Run build_features.py first.")
+# === STEP 1: Load historical data ===
+df = pd.read_csv(RAW_DATA_CSV)
 
-    df = pd.read_csv(FEATURES_PATH, parse_dates=["timestamp"], dayfirst=False)
-    print(f"Loaded {len(df)} rows from {FEATURES_PATH}")
+# === STEP 2: Ensure all required columns exist ===
+required_cols = ['pm25', 'pm10', 'o3', 'co', 'no2', 'so2', 'hour', 'day', 'month', 'aqi_change', 'aqi']
+for col in required_cols:
+    if col not in df.columns:
+        df[col] = 0.0  # placeholder if missing
 
-    # choose target: prefer 'aqi', else fallback to 'pm25'
-    target_col = "aqi" if "aqi" in df.columns else "pm25"
-    if "aqi" not in df.columns:
-        print("WARNING: 'aqi' column not found. Using 'pm25' as target instead.")
+# === STEP 3: Convert feature columns to numeric ===
+X = df[['pm25','pm10','o3','co','no2','so2','hour','day','month','aqi_change']].apply(pd.to_numeric, errors='coerce')
+y = pd.to_numeric(df['aqi'], errors='coerce')
 
-    df = df.dropna(subset=[target_col])
-    if df.empty:
-        raise ValueError(f"No rows left after dropping NaN from '{target_col}'.")
+# === STEP 4: Drop rows with NaN ===
+X = X.dropna()
+y = y[X.index]
 
-    X = df.drop(columns=["timestamp", target_col], errors="ignore").fillna(0)
-    y = df[target_col]
-
-    # simple train-test split
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
+# === STEP 5: Train model ===
+if VALIDATION_SPLIT:
+    # Split data into train and validation
+    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
     model = RandomForestRegressor(n_estimators=100, random_state=42)
     model.fit(X_train, y_train)
+    
+    # Predictions
+    y_train_pred = model.predict(X_train)
+    y_val_pred = model.predict(X_val)
+    
+    # Calculate RMSE
+    rmse_train = np.sqrt(mean_squared_error(y_train, y_train_pred))
+    rmse_val = np.sqrt(mean_squared_error(y_val, y_val_pred))
+    print(f"Training RMSE: {rmse_train:.2f}")
+    print(f"Validation RMSE: {rmse_val:.2f}")
+else:
+    model = RandomForestRegressor(n_estimators=100, random_state=42)
+    model.fit(X, y)
+    y_pred = model.predict(X)
+    rmse = np.sqrt(mean_squared_error(y, y_pred))
+    print(f"Training RMSE: {rmse:.2f}")
 
-    y_pred = model.predict(X_test)
-    rmse = mean_squared_error(y_test, y_pred) ** 0.5
-
-    os.makedirs(MODELS_DIR, exist_ok=True)
-    # overwrite stable filename so CI always finds the same path
-    joblib.dump(model, MODEL_PATH, compress=3)
-
-    print(f"Model saved to {MODEL_PATH}")
-    print(f"Model Trained | RMSE: {rmse:.3f}")
-
-if __name__ == "__main__":
-    train_model()
+# === STEP 6: Save trained model ===
+joblib.dump(model, MODEL_PATH)
+print(f"Model trained and saved as {MODEL_PATH}")

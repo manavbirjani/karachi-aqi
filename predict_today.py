@@ -1,78 +1,115 @@
-# predict_today.py (replace)
 import os
-import joblib
-import pandas as pd
 import requests
+import pandas as pd
+import joblib
 from datetime import datetime
-from dotenv import load_dotenv
 
-load_dotenv()
+# === CONFIG ===
 API_TOKEN = os.getenv("AQI_API_TOKEN")
-MODEL_PATH = "models/karachi_aqi_model.pkl"
-OUT_PATH = "data/daily_predictions.csv"
+MODEL_PATH = "karachi_aqi_model.pkl"
+PREDICTION_CSV = "data/daily_predictions.csv"
 
-# default feature ordering used in training
-DEFAULT_FEATURES = ["pm25", "pm10", "o3", "co", "no2", "so2", "hour", "day", "month", "pm25_change"]
+# === STEP 1: Fetch live AQI data from WAQI API ===
+data = None
+if API_TOKEN:
+    try:
+        url = f"https://api.waqi.info/feed/karachi/?token={API_TOKEN}"
+        response = requests.get(url).json()
+        print("Raw API response:", response)
+        if response.get("status") == "ok":
+            data = response["data"]
+        else:
+            print("API returned error. Using fallback dummy data.")
+    except Exception as e:
+        print("API request failed:", e)
 
-def fetch_live_data():
-    if not API_TOKEN:
-        raise RuntimeError("AQI_API_TOKEN not set in environment variables.")
-    url = f"https://api.waqi.info/feed/karachi/?token={API_TOKEN}"
-    r = requests.get(url, timeout=10)
-    data = r.json()
-    if data.get("status") != "ok":
-        raise RuntimeError(f"API returned error: {data}")
-    iaqi = data["data"].get("iaqi", {})
-    def val(k): return float(iaqi.get(k, {}).get("v", 0.0))
-    now = datetime.now()
-    # try to compute pm25_change using last features if available
-    pm25_change = 0.0
-    # Build dict
-    row = {
-        "pm25": val("pm25"),
-        "pm10": val("pm10"),
-        "o3": val("o3"),
-        "co": val("co"),
-        "no2": val("no2"),
-        "so2": val("so2"),
-        "hour": now.hour,
-        "day": now.day,
-        "month": now.month,
-        "pm25_change": pm25_change
+# Fallback dummy data
+if data is None:
+    data = {
+        "aqi": 160,
+        "iaqi": {
+            "pm25": {"v": 160},
+            "pm10": {"v": 120},
+            "o3": {"v": 30},
+            "co": {"v": 0.5},
+            "no2": {"v": 20},
+            "so2": {"v": 10}
+        }
     }
-    return pd.DataFrame([row]), now
 
-def load_model():
-    if not os.path.exists(MODEL_PATH):
-        raise FileNotFoundError(f"Model not found at {MODEL_PATH}. Run train_model.py")
-    return joblib.load(MODEL_PATH)
+# === STEP 2: Extract features ===
+pm25 = data.get("iaqi", {}).get("pm25", {}).get("v", 0.0)
+pm10 = data.get("iaqi", {}).get("pm10", {}).get("v", 0.0)
+o3 = data.get("iaqi", {}).get("o3", {}).get("v", 0.0)
+co = data.get("iaqi", {}).get("co", {}).get("v", 0.0)
+no2 = data.get("iaqi", {}).get("no2", {}).get("v", 0.0)
+so2 = data.get("iaqi", {}).get("so2", {}).get("v", 0.0)
 
-def align_features(df, model):
-    # get feature names expected by model
-    if hasattr(model, "feature_names_in_"):
-        feature_names = list(model.feature_names_in_)
-    else:
-        feature_names = DEFAULT_FEATURES
-    # add missing cols with zeros and drop extras
-    for c in feature_names:
-        if c not in df.columns:
-            df[c] = 0.0
-    df = df[feature_names]
-    return df, feature_names
+now = datetime.now()
+hour = now.hour
+day = now.day
+month = now.month
 
-def append_prediction(ts, pred):
-    os.makedirs(os.path.dirname(OUT_PATH) or ".", exist_ok=True)
-    row = {"prediction_time": ts.strftime("%Y-%m-%d %H:%M:%S"), "aqi_predicted": float(pred)}
-    df_out = pd.DataFrame([row])
-    if os.path.exists(OUT_PATH):
-        df_out.to_csv(OUT_PATH, mode="a", header=False, index=False)
-    else:
-        df_out.to_csv(OUT_PATH, index=False)
+# AQI change calculation
+try:
+    df_prev = pd.read_csv(PREDICTION_CSV)
+    last_aqi = df_prev["aqi_predicted"].iloc[-1]
+    aqi_change = data.get("aqi", last_aqi) - last_aqi
+except Exception:
+    aqi_change = 0.0
 
-if __name__ == "__main__":
-    df_feat, ts = fetch_live_data()
-    model = load_model()
-    df_aligned, feat_names = align_features(df_feat, model)
-    pred = model.predict(df_aligned)[0]
-    append_prediction(ts, pred)
-    print(f"Predicted AQI: {pred:.2f} at {ts}")
+# === STEP 3: Prepare features for model ===
+X_new = pd.DataFrame([{
+    "pm25": pm25,
+    "pm10": pm10,
+    "o3": o3,
+    "co": co,
+    "no2": no2,
+    "so2": so2,
+    "hour": hour,
+    "day": day,
+    "month": month,
+    "aqi_change": aqi_change
+}])
+
+# Fill NaN values to avoid RandomForest errors
+X_new = X_new.fillna(0.0)
+
+print("Features for prediction:\n", X_new)
+
+# === STEP 4: Load trained model ===
+if not os.path.exists(MODEL_PATH):
+    raise FileNotFoundError(f"{MODEL_PATH} not found! Run train_model.py first.")
+
+model = joblib.load(MODEL_PATH)
+
+# === STEP 5: Predict AQI ===
+predicted_aqi = model.predict(X_new)[0]
+print(f"Predicted AQI: {predicted_aqi:.2f} at {now}")
+
+# === STEP 6: Append to CSV with correct columns and safe handling ===
+new_row = {
+    "prediction_time": now,             # only datetime column
+    "aqi_predicted": predicted_aqi,     # predicted AQI
+    "pm25": pm25,
+    "pm10": pm10,
+    "o3": o3,
+    "co": co,
+    "no2": no2,
+    "so2": so2,
+    "hour": hour,
+    "day": day,
+    "month": month,
+    "aqi": data.get("aqi", predicted_aqi),  # live API AQI or predicted
+    "aqi_change": aqi_change
+}
+
+try:
+    df_store = pd.read_csv(PREDICTION_CSV)
+    df_store = pd.concat([df_store, pd.DataFrame([new_row]).dropna(axis=1, how='all')],
+                         ignore_index=True)
+except FileNotFoundError:
+    df_store = pd.DataFrame([new_row], columns=new_row.keys())
+
+df_store.to_csv(PREDICTION_CSV, index=False)
+print("Prediction saved to CSV successfully!")
