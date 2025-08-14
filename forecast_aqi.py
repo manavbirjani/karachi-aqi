@@ -5,9 +5,7 @@ from datetime import datetime, timedelta
 import random
 import time
 
-# -------------------------------
-# Configuration
-# -------------------------------
+
 API_TOKEN = os.getenv("AQI_API_TOKEN")
 CITY_LAT = 24.8607
 CITY_LON = 67.0011
@@ -20,9 +18,6 @@ if not API_TOKEN:
 
 API_URL = f"https://api.waqi.info/forecast/daily/geo:{CITY_LAT};{CITY_LON}/?token={API_TOKEN}"
 
-# -------------------------------
-# Fetch API Forecast
-# -------------------------------
 def fetch_forecast():
     for attempt in range(1, MAX_RETRIES + 1):
         try:
@@ -38,9 +33,6 @@ def fetch_forecast():
     print("⚠ Max retries reached. Using placeholder forecast.")
     return None
 
-# -------------------------------
-# Convert API Data to DataFrame
-# -------------------------------
 def create_forecast_df(api_forecast):
     rows = []
     today = datetime.now()
@@ -80,9 +72,6 @@ def create_forecast_df(api_forecast):
             })
     return pd.DataFrame(rows)
 
-# -------------------------------
-# Main Execution
-# -------------------------------
 def main():
     os.makedirs("data", exist_ok=True)
     api_forecast = fetch_forecast()
