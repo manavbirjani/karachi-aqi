@@ -1,47 +1,40 @@
-name: Forecast AQI Daily
+name: Karachi AQI Forecast
 
 on:
-  schedule:
-    - cron: '0 0 * * *'  # Daily at midnight UTC
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
-  forecast:
-    runs-on: windows-latest
+  run-forecast:
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        ssh-key: ${{ secrets.SSH_DEPLOY_KEY }} # SSH deploy key from repo secrets
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.11
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements.txt
 
-      # Step 1: Retrain the model to avoid KeyError: 118
-      - name: Retrain model
-        run: python train_model.py
+    - name: Run AQI forecast script
+      env:
+        AQI_API_TOKEN: ${{ secrets.AQI_API_TOKEN }} # API token from repo secrets
+      run: python forecast_aqi.py
 
-      # Step 2: Run the forecast script
-      - name: Run Forecast
-        run: python forecast_aqi.py
-
-      # Step 3: Commit & Push results via SSH
-      - name: Commit and Push Forecast
-        shell: bash
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" | base64 -d > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan github.com >> ~/.ssh/known_hosts
-
-          git config --global user.name "ci-bot"
-          git config --global user.email "ci-bot@example.com"
-          git remote set-url origin git@github.com:manavbirjani/karachi-aqi.git
-
-          git add models/karachi_aqi_model.pkl data/forecast_3day.csv
-          git diff --cached --quiet || git commit -m "📈 New AQI forecast"
-          git push origin main
+    - name: Commit and push updated forecast
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git add data/forecast_3day.csv
+        git commit -m "Auto-update forecast [skip ci]" || echo "No changes to commit"
+        git push origin main
