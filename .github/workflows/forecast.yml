@@ -1,40 +1,38 @@
-name: Karachi AQI Forecast
+name: AQI Forecast
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *" # Daily at midnight UTC
+
+permissions:
+  contents: write
 
 jobs:
-  run-forecast:
+  forecast:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        ssh-key: ${{ secrets.SSH_DEPLOY_KEY }} # SSH deploy key from repo secrets
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-    - name: Install dependencies
-      run: |
-        pip install --upgrade pip
-        pip install -r requirements.txt
+      - name: Install dependencies
+        run: pip install -r requirements.txt
 
-    - name: Run AQI forecast script
-      env:
-        AQI_API_TOKEN: ${{ secrets.AQI_API_TOKEN }} # API token from repo secrets
-      run: python forecast_aqi.py
+      - name: Run forecast script
+        env:
+          AQI_API_TOKEN: ${{ secrets.AQI_API_TOKEN }}
+        run: python forecast_aqi.py
 
-    - name: Commit and push updated forecast
-      run: |
-        git config --global user.name "github-actions[bot]"
-        git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        git add data/forecast_3day.csv
-        git commit -m "Auto-update forecast [skip ci]" || echo "No changes to commit"
-        git push origin main
+      - name: Commit and push forecast data
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/forecast_3day.csv
+          git commit -m "Auto-update forecast [skip ci]" || echo "No changes to commit"
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git main
