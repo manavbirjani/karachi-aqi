@@ -71,26 +71,21 @@ X_new = pd.DataFrame([{
     "month": month,
     "aqi_change": aqi_change
 }])
-
-# Fill NaN values to avoid RandomForest errors
 X_new = X_new.fillna(0.0)
-
-print("Features for prediction:\n", X_new)
 
 # === STEP 4: Load trained model ===
 if not os.path.exists(MODEL_PATH):
     raise FileNotFoundError(f"{MODEL_PATH} not found! Run train_model.py first.")
-
 model = joblib.load(MODEL_PATH)
 
 # === STEP 5: Predict AQI ===
 predicted_aqi = model.predict(X_new)[0]
 print(f"Predicted AQI: {predicted_aqi:.2f} at {now}")
 
-# === STEP 6: Append to CSV with correct columns and safe handling ===
+# === STEP 6: Append to CSV ===
 new_row = {
-    "prediction_time": now,             # only datetime column
-    "aqi_predicted": predicted_aqi,     # predicted AQI
+    "prediction_time": now.isoformat(),  # ISO format for correct parsing
+    "aqi_predicted": predicted_aqi,
     "pm25": pm25,
     "pm10": pm10,
     "o3": o3,
@@ -100,16 +95,15 @@ new_row = {
     "hour": hour,
     "day": day,
     "month": month,
-    "aqi": data.get("aqi", predicted_aqi),  # live API AQI or predicted
+    "aqi": data.get("aqi", predicted_aqi),
     "aqi_change": aqi_change
 }
 
 try:
     df_store = pd.read_csv(PREDICTION_CSV)
-    df_store = pd.concat([df_store, pd.DataFrame([new_row]).dropna(axis=1, how='all')],
-                         ignore_index=True)
+    df_store = pd.concat([df_store, pd.DataFrame([new_row])], ignore_index=True)
 except FileNotFoundError:
-    df_store = pd.DataFrame([new_row], columns=new_row.keys())
+    df_store = pd.DataFrame([new_row])
 
 df_store.to_csv(PREDICTION_CSV, index=False)
 print("Prediction saved to CSV successfully!")
