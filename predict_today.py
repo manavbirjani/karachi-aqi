@@ -1,109 +1,79 @@
 import os
 import requests
-import pandas as pd
 import joblib
+import pandas as pd
+import numpy as np
 from datetime import datetime
+from dotenv import load_dotenv
 
-# === CONFIG ===
-API_TOKEN = os.getenv("AQI_API_TOKEN")
+load_dotenv()
+WAQI_API_TOKEN = os.getenv("AQI_API_TOKEN")
+if not WAQI_API_TOKEN:
+    raise Exception("AQI_API_TOKEN environment variable is not set!")
+
 MODEL_PATH = "karachi_aqi_model.pkl"
-PREDICTION_CSV = "data/daily_predictions.csv"
-
-# === STEP 1: Fetch live AQI data from WAQI API ===
-data = None
-if API_TOKEN:
-    try:
-        url = f"https://api.waqi.info/feed/karachi/?token={API_TOKEN}"
-        response = requests.get(url).json()
-        print("Raw API response:", response)
-        if response.get("status") == "ok":
-            data = response["data"]
-        else:
-            print("API returned error. Using fallback dummy data.")
-    except Exception as e:
-        print("API request failed:", e)
-
-# Fallback dummy data
-if data is None:
-    data = {
-        "aqi": 160,
-        "iaqi": {
-            "pm25": {"v": 160},
-            "pm10": {"v": 120},
-            "o3": {"v": 30},
-            "co": {"v": 0.5},
-            "no2": {"v": 20},
-            "so2": {"v": 10}
-        }
-    }
-
-# === STEP 2: Extract features ===
-pm25 = data.get("iaqi", {}).get("pm25", {}).get("v", 0.0)
-pm10 = data.get("iaqi", {}).get("pm10", {}).get("v", 0.0)
-o3 = data.get("iaqi", {}).get("o3", {}).get("v", 0.0)
-co = data.get("iaqi", {}).get("co", {}).get("v", 0.0)
-no2 = data.get("iaqi", {}).get("no2", {}).get("v", 0.0)
-so2 = data.get("iaqi", {}).get("so2", {}).get("v", 0.0)
-
-now = datetime.now()
-hour = now.hour
-day = now.day
-month = now.month
-
-# AQI change calculation
-try:
-    df_prev = pd.read_csv(PREDICTION_CSV)
-    last_aqi = df_prev["aqi_predicted"].iloc[-1]
-    aqi_change = data.get("aqi", last_aqi) - last_aqi
-except Exception:
-    aqi_change = 0.0
-
-# === STEP 3: Prepare features for model ===
-X_new = pd.DataFrame([{
-    "pm25": pm25,
-    "pm10": pm10,
-    "o3": o3,
-    "co": co,
-    "no2": no2,
-    "so2": so2,
-    "hour": hour,
-    "day": day,
-    "month": month,
-    "aqi_change": aqi_change
-}])
-X_new = X_new.fillna(0.0)
-
-# === STEP 4: Load trained model ===
-if not os.path.exists(MODEL_PATH):
-    raise FileNotFoundError(f"{MODEL_PATH} not found! Run train_model.py first.")
 model = joblib.load(MODEL_PATH)
 
-# === STEP 5: Predict AQI ===
-predicted_aqi = model.predict(X_new)[0]
-print(f"Predicted AQI: {predicted_aqi:.2f} at {now}")
+API_URL = f"https://api.waqi.info/feed/karachi/?token={WAQI_API_TOKEN}"
+response = requests.get(API_URL)
+data = response.json()
+if data.get("status") != "ok":
+    raise Exception("Failed to fetch AQI data!")
 
-# === STEP 6: Append to CSV ===
-new_row = {
-    "prediction_time": now.isoformat(),  # ISO format for correct parsing
-    "aqi_predicted": predicted_aqi,
-    "pm25": pm25,
-    "pm10": pm10,
-    "o3": o3,
-    "co": co,
-    "no2": no2,
-    "so2": so2,
-    "hour": hour,
-    "day": day,
-    "month": month,
-    "aqi": data.get("aqi", predicted_aqi),
-    "aqi_change": aqi_change
+iaqi = data["data"].get("iaqi", {})
+forecast = data["data"].get("forecast", {}).get("daily", {})
+actual_aqi = data["data"].get("aqi", 0)
+today_str = datetime.now().strftime("%Y-%m-%d")
+
+def get_pollutant(name):
+    value = iaqi.get(name, {}).get("v")
+    if value is None and name in forecast:
+        for f in forecast[name]:
+            if f["day"] == today_str:
+                value = f["avg"]
+                break
+    return value if value is not None else 0
+
+features = {
+    "pm25": get_pollutant("pm25"),
+    "pm10": get_pollutant("pm10"),
+    "o3": get_pollutant("o3"),
+    "co": get_pollutant("co"),
+    "no2": get_pollutant("no2"),
+    "so2": get_pollutant("so2"),
+    "hour": datetime.now().hour,
+    "day": datetime.now().day,
+    "month": datetime.now().month,
 }
 
-try:
-    df_store = pd.read_csv(PREDICTION_CSV)
-    df_store = pd.concat([df_store, pd.DataFrame([new_row])], ignore_index=True)
-except FileNotFoundError:
-    df_store = pd.DataFrame([new_row])
+X_new = pd.DataFrame([features])
+for col in model.feature_names_in_:
+    if col not in X_new.columns:
+        X_new[col] = 0
+X_new = X_new[model.feature_names_in_]
 
-df_store.to_csv(PREDICTION_CSV, index=False)
-print("Prediction saved to CSV successfully!")
+aqi_predicted = model.predict(X_new)[0]
+
+# --- Add small random noise (±2%) ---
+noise = np.random.uniform(-0.02, 0.02) * aqi_predicted
+aqi_predicted = aqi_predicted + noise
+
+print(f"Predicted AQI (with noise): {aqi_predicted:.2f} at {datetime.now()}")
+
+df_new = pd.DataFrame([{
+    "prediction_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    "aqi_predicted": round(aqi_predicted, 2),   # <-- name changed
+    **features,
+    "aqi": actual_aqi,
+    "aqi_change": round(aqi_predicted - actual_aqi, 2)
+}])
+
+csv_file = os.path.join("data", "daily_predictions.csv")
+if os.path.exists(csv_file):
+    df_existing = pd.read_csv(csv_file)
+    df_all = pd.concat([df_existing, df_new], ignore_index=True)
+else:
+    df_all = df_new
+
+df_all.to_csv(csv_file, index=False)
+print("Prediction saved successfully (with noise)!")
