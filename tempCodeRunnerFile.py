@@ -7,7 +7,7 @@ import joblib
 
 # === CONFIG ===
 RAW_DATA_CSV = "data/raw_aqi_data_karachi.csv"
-MODEL_PATH = "models/karachi_aqi_model.pkl"
+MODEL_PATH = "karachi_aqi_model.pkl"
 VALIDATION_SPLIT = True  # Set False if no validation needed
 
 # === STEP 1: Load historical data ===
