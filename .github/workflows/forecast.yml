@@ -1,0 +1,38 @@
+name: AQI Forecast
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *" # Daily at midnight UTC
+
+permissions:
+  contents: write
+
+jobs:
+  forecast:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run forecast script
+        env:
+          AQI_API_TOKEN: ${{ secrets.AQI_API_TOKEN }}
+        run: python forecast_aqi.py
+
+      - name: Commit and push forecast data
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/forecast_3day.csv
+          git commit -m "Auto-update forecast [skip ci]" || echo "No changes to commit"
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git main
